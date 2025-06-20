@@ -56,6 +56,18 @@ function ChatWindow({
 
   useEffect(() => {
     if (selectedConversation && socketRef.current) {
+      // Đảm bảo socket đã được khởi tạo với URL đúng
+if (!socketRef.current.connected) {
+  console.log("Reconnecting WebSocket to Vercel backend...");
+  socketRef.current = io(process.env.REACT_APP_WS_URL, {
+    withCredentials: true,
+    transports: ["websocket"],
+    auth: {
+      token: localStorage.getItem("accessToken"),
+    },
+  });
+}
+
       socketRef.current.emit("joinConversation", {
         conversationId: selectedConversation.conversationId,
       });
@@ -191,22 +203,22 @@ function ChatWindow({
     };
   }, [callState, callStartTime]);
 
-const fetchMessages = async () => {
-  if (!selectedConversation) return;
-  try {
-    const tokens = JSON.parse(localStorage.getItem("tokens"));
-    const response = await axios.get(
-      `${process.env.REACT_APP_API_URL}/chats/messages/${selectedConversation.conversationId}`,
-      { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
-    );
-    console.log("Fetched messages:", response.data); // Add this line
-    setMessages(response.data);
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  } catch (error) {
-    console.error("Error fetching messages:", error);
-    toast.error("Không thể tải tin nhắn");
-  }
-};
+  const fetchMessages = async () => {
+    if (!selectedConversation) return;
+    try {
+      const tokens = JSON.parse(localStorage.getItem("tokens"));
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_URL}/chats/messages/${selectedConversation.conversationId}`,
+        { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
+      );
+      console.log("Fetched messages:", response.data); // Add this line
+      setMessages(response.data);
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      toast.error("Không thể tải tin nhắn");
+    }
+  };
 
   const fetchUserProfile = async (userId) => {
     try {
@@ -545,90 +557,90 @@ const fetchMessages = async () => {
     }
   };
 
-const handleChangeTheme = (themeColor) => {
-  localStorage.setItem(`theme_${selectedConversation.conversationId}`, themeColor);
-  socketRef.current.emit("changeTheme", {
-    from: currentUser,
-    newTheme: themeColor,
-    conversationId: selectedConversation.conversationId,
-  });
-  const systemMessage = {
-    conversationId: selectedConversation.conversationId,
-    senderId: currentUser,
-    receiverId: selectedConversation.friendId,
-    content: "Bạn đã thay đổi chủ đề màu sắc",
-    type: "system",
-    timestamp: new Date().toISOString(),
-    status: "sent",
+  const handleChangeTheme = (themeColor) => {
+    localStorage.setItem(`theme_${selectedConversation.conversationId}`, themeColor);
+    socketRef.current.emit("changeTheme", {
+      from: currentUser,
+      newTheme: themeColor,
+      conversationId: selectedConversation.conversationId,
+    });
+    const systemMessage = {
+      conversationId: selectedConversation.conversationId,
+      senderId: currentUser,
+      receiverId: selectedConversation.friendId,
+      content: "Bạn đã thay đổi chủ đề màu sắc",
+      type: "system",
+      timestamp: new Date().toISOString(),
+      status: "sent",
+    };
+    socketRef.current.emit("sendMessage", systemMessage, (response) => {
+      if (response?.error) {
+        toast.error(response.error);
+        setMessages((prev) =>
+          prev.filter((msg) => msg.timestamp !== systemMessage.timestamp)
+        );
+      }
+    });
+    setMessages((prev) => [...prev, systemMessage]);
+    selectedConversation.theme = themeColor;
+    setShowThemeModal(false);
+    setShowSettingsModal(true);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-  socketRef.current.emit("sendMessage", systemMessage, (response) => {
-    if (response?.error) {
-      toast.error(response.error);
-      setMessages((prev) =>
-        prev.filter((msg) => msg.timestamp !== systemMessage.timestamp)
-      );
+
+  const handleSetNickname = () => {
+    if (!nickname.trim()) {
+      toast.error("Biệt hiệu không được để trống!");
+      return;
     }
-  });
-  setMessages((prev) => [...prev, systemMessage]);
-  selectedConversation.theme = themeColor;
-  setShowThemeModal(false);
-  setShowSettingsModal(true);
-  messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-};
+    localStorage.setItem(`nickname_${selectedConversation.conversationId}`, nickname);
+    socketRef.current.emit("nicknameChanged", {
+      conversationId: selectedConversation.conversationId,
+      newNickname: nickname,
+      from: currentUser, // Thêm trường from
+    });
 
-const handleSetNickname = () => {
-  if (!nickname.trim()) {
-    toast.error("Biệt hiệu không được để trống!");
-    return;
-  }
-  localStorage.setItem(`nickname_${selectedConversation.conversationId}`, nickname);
-  socketRef.current.emit("nicknameChanged", {
-    conversationId: selectedConversation.conversationId,
-    newNickname: nickname,
-    from: currentUser, // Thêm trường from
-  });
+    // Cập nhật tên trên header và state ngay lập tức
+    setSelectedConversation((prev) => ({
+      ...prev,
+      friendName: nickname,
+    }));
 
-  // Cập nhật tên trên header và state ngay lập tức
-  setSelectedConversation((prev) => ({
-    ...prev,
-    friendName: nickname,
-  }));
+    // Gửi thông báo hệ thống vào khung chat
+    const systemMessage = {
+      conversationId: selectedConversation.conversationId,
+      senderId: currentUser,
+      receiverId: selectedConversation.friendId,
+      content: `Bạn đã đổi biệt hiệu của ${profile?.name || selectedConversation.friendName} thành ${nickname}`,
+      type: "system",
+      timestamp: new Date().toISOString(),
+      status: "sent",
+    };
+    socketRef.current.emit("sendMessage", systemMessage, (response) => {
+      if (response?.error) {
+        toast.error(response.error);
+        setMessages((prev) =>
+          prev.filter((msg) => msg.timestamp !== systemMessage.timestamp)
+        );
+      }
+    });
+    setMessages((prev) => [...prev, systemMessage]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // Gửi thông báo hệ thống vào khung chat
-  const systemMessage = {
-    conversationId: selectedConversation.conversationId,
-    senderId: currentUser,
-    receiverId: selectedConversation.friendId,
-    content: `Bạn đã đổi biệt hiệu của ${profile?.name || selectedConversation.friendName} thành ${nickname}`,
-    type: "system",
-    timestamp: new Date().toISOString(),
-    status: "sent",
+    setShowNicknameModal(false);
+    setNickname("");
+    setShowSettingsModal(true);
   };
-  socketRef.current.emit("sendMessage", systemMessage, (response) => {
-    if (response?.error) {
-      toast.error(response.error);
-      setMessages((prev) =>
-        prev.filter((msg) => msg.timestamp !== systemMessage.timestamp)
-      );
-    }
-  });
-  setMessages((prev) => [...prev, systemMessage]);
-  messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  setShowNicknameModal(false);
-  setNickname("");
-  setShowSettingsModal(true);
-};
+  const handleShowSearchBar = () => {
+    setShowSearchBar(true);
+    setShowSettingsModal(false);
+  };
 
-const handleShowSearchBar = () => {
-  setShowSearchBar(true);
-  setShowSettingsModal(false);
-};
-
-const handleClearSearch = () => {
-  setSearchQuery("");
-  messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-};  
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };  
 
   const handleCancelSearch = () => {
     setShowSearchBar(false);
@@ -672,28 +684,28 @@ const handleClearSearch = () => {
     });
   };
 
-const handleSearchMessages = () => {
-  if (!searchQuery.trim()) {
-    toast.error("Vui lòng nhập nội dung tìm kiếm");
-    return;
-  }
-  // Scroll to the first matching message
-  const firstMatch = messages.find((msg) =>
-    filterMessageContent(msg.content)
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase())
-  );
-  if (firstMatch) {
-    const messageElement = document.querySelector(
-      `.messageContainer[data-timestamp="${firstMatch.timestamp}"]`
-    );
-    if (messageElement) {
-      messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
+  const handleSearchMessages = () => {
+    if (!searchQuery.trim()) {
+      toast.error("Vui lòng nhập nội dung tìm kiếm");
+      return;
     }
-  } else {
-    toast.info("Không tìm thấy tin nhắn phù hợp");
-  }
-};
+    // Scroll to the first matching message
+    const firstMatch = messages.find((msg) =>
+      filterMessageContent(msg.content)
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
+    );
+    if (firstMatch) {
+      const messageElement = document.querySelector(
+        `.messageContainer[data-timestamp="${firstMatch.timestamp}"]`
+      );
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    } else {
+      toast.info("Không tìm thấy tin nhắn phù hợp");
+    }
+  };
 
   const handleShowMoreOptions = (timestamp) => {
     setShowMoreOptions(timestamp === showMoreOptions ? null : timestamp);
@@ -737,7 +749,7 @@ const handleSearchMessages = () => {
     }
   };
 
-return (
+  return (
     <div className="chatArea" style={{ backgroundColor: selectedConversation?.theme || '#ffffff' }}>
       {selectedConversation ? (
         <>
