@@ -19,22 +19,21 @@ export const initializeSocket = (server) => {
     },
   });
 
-  // Xác thực socket bằng Cognito token
-  io.use(async (socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (!token) {
-      console.warn("Socket authentication failed: No token provided");
-      return next(new Error("Yêu cầu access token"));
-    }
-    try {
-      const userData = await cognitoISP.getUser({ AccessToken: token }).promise();
-      socket.userId = userData.Username;
-      next();
-    } catch (error) {
-      console.error(`Socket authentication error for token ${token}:`, error.message);
-      next(new Error("Lỗi xác thực: Token không hợp lệ"));
-    }
-  });
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    console.warn("Socket authentication failed: No token provided");
+    return next(new Error("Yêu cầu access token"));
+  }
+  try {
+    const userData = await cognitoISP.getUser({ AccessToken: token }).promise();
+    socket.userId = userData.Username;
+    next();
+  } catch (error) {
+    console.error(`Socket authentication error for token ${token}:`, error.message);
+    next(new Error("Lỗi xác thực: Token không hợp lệ"));
+  }
+});
 
   io.on("connection", (socket) => {
     console.log(`Client connected: ${socket.userId}`);
