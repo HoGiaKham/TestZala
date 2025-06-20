@@ -55,25 +55,25 @@ function ChatWindow({
   const recordingTimerRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  useEffect(() => {
-    if (selectedConversation && socketRef.current) {
-      // Đảm bảo socket đã được khởi tạo với URL 
-if (!socketRef.current.connected) {
-  console.log("Reconnecting WebSocket to Vercel backend...");
-        console.log("WS_URL from env:", process.env.REACT_APP_WS_URL);
+useEffect(() => {
+  if (selectedConversation && socketRef.current) {
+    // Đảm bảo socket sử dụng đúng giao thức wss://
+    const wsUrl = process.env.REACT_APP_WS_URL.replace(/^https?/, "wss");
+    console.log("Connecting WebSocket to:", wsUrl);
 
-  socketRef.current = io(process.env.REACT_APP_WS_URL, {
-    withCredentials: true,
-    transports: ["websocket"],
-    auth: {
-      token: localStorage.getItem("accessToken"),
-    },
-  });
-}
-
-      socketRef.current.emit("joinConversation", {
-        conversationId: selectedConversation.conversationId,
+    if (!socketRef.current.connected) {
+      socketRef.current = io(wsUrl, {
+        withCredentials: true,
+        transports: ["websocket"],
+        auth: {
+          token: localStorage.getItem("accessToken"),
+        },
       });
+    }
+
+socketRef.current.emit("joinConversation", {
+      conversationId: selectedConversation.conversationId,
+    });
 
       socketRef.current.on("receiveMessage", (message) => {
         setMessages((prev) => [...prev, message]);
