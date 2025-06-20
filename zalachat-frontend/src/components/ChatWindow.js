@@ -344,7 +344,7 @@ if (!socketRef.current.connected) {
       }
     } else if (audioBlob) {
       if (!audioBlob.size) {
-        toast.error("Tin nhắn thoại rỗng, vui lòng ghi âm lại.");
+        toast.error("Tin nhắn thoại rỗng, vui lòng ghi âm lại!");
         setAudioBlob(null);
         setAudioPreviewUrl(null);
         setIsRecording(false);
