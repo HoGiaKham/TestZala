@@ -48,6 +48,20 @@ if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads", { recursive: true });
 }
 
+// Test AWS connection
+(async () => {
+  try {
+    console.log("Testing DynamoDB connection...");
+    await dynamoDBClient.send(new PutCommand({
+      TableName: process.env.DYNAMODB_TABLE_MESSAGES,
+      Item: { testKey: "testValue", timestamp: new Date().toISOString() },
+    }));
+    console.log("DynamoDB connection successful");
+  } catch (error) {
+    console.error("DynamoDB connection failed:", error.message);
+  }
+})();
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/chats", chatRoutes);
@@ -375,8 +389,6 @@ io.on("connection", (socket) => {
     }
     console.log(`Received call answer: from=${socket.user.sub}, to=${to}, conversationId=${conversationId}`);
     io.to(to).emit("answer", {
-      from: socket.user.sub,
-      conversationId,
       answer,
     });
     console.log(`Sent call answer to ${to}`);
@@ -389,8 +401,6 @@ io.on("connection", (socket) => {
     }
     console.log(`Received iceCandidate: from=${socket.user.sub}, to=${to}, conversationId=${conversationId}`);
     io.to(to).emit("iceCandidate", {
-      from: socket.user.sub,
-      conversationId,
       candidate,
     });
     console.log(`Sent iceCandidate to ${to}`);
