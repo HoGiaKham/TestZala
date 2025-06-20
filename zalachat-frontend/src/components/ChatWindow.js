@@ -56,7 +56,7 @@ function ChatWindow({
 
   useEffect(() => {
     if (selectedConversation && socketRef.current) {
-      // Đảm bảo socket đã được khởi tạo với URL đúng
+      // Đảm bảo socket đã được khởi tạo với URL 
 if (!socketRef.current.connected) {
   console.log("Reconnecting WebSocket to Vercel backend...");
   socketRef.current = io(process.env.REACT_APP_WS_URL, {
