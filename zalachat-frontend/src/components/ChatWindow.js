@@ -4,6 +4,7 @@ import EmojiPicker from "emoji-picker-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./Chats.css";
+import { io } from "socket.io-client";
 
 function ChatWindow({
   selectedConversation,
