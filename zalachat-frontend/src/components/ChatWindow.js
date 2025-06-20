@@ -60,6 +60,8 @@ function ChatWindow({
       // Đảm bảo socket đã được khởi tạo với URL 
 if (!socketRef.current.connected) {
   console.log("Reconnecting WebSocket to Vercel backend...");
+        console.log("WS_URL from env:", process.env.REACT_APP_WS_URL);
+
   socketRef.current = io(process.env.REACT_APP_WS_URL, {
     withCredentials: true,
     transports: ["websocket"],
